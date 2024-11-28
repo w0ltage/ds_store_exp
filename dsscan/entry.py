@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 # LiJieJie    my[at]lijiejie.com    http://www.lijiejie.com
 
+import click
 import logging
 import sys
 try:
@@ -104,9 +105,9 @@ class Scanner(object):
             finally:
                 self.working_thread -= 1
 
-    def scan(self):
+    def scan(self, threads):
         all_threads = []
-        for i in range(10):
+        for i in range(threads):
             t = threading.Thread(target=self.process)
             all_threads.append(t)
             t.start()
@@ -137,15 +138,18 @@ def parse_dstore_data(filename):
             entries["files"].add(file_)
     return entries
 
-def main():
-    if len(sys.argv) == 1:
-        print('A .DS_Store file disclosure exploit.')
-        print('It parses .DS_Store and downloads file recursively.')
-        print()
-        print('Usage: python ds_store_exp.py https://www.example.com/.DS_Store')
-        sys.exit(0)
-    s = Scanner(sys.argv[1])
-    s.scan()
+
+@click.command()
+@click.argument('url')
+@click.option("-t", "--threads", default=5, type=int, help="How fast did you want to download all the files. (default: 5)")
+@click.help_option(help='A .DS_Store file disclosure exploit. It parses .DS_Store and downloads files recursively.')
+def main(url, threads):
+    """A .DS_Store file disclosure exploit.
+    
+    It parses .DS_Store and downloads files recursively.
+    """
+    s = Scanner(url)
+    s.scan(threads=threads)
 
 
 if __name__ == '__main__':
