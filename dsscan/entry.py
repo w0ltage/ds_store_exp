@@ -14,6 +14,8 @@ import threading
 from io import BytesIO
 from ds_store import DSStore
 import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class Scanner(object):
@@ -71,7 +73,6 @@ class Scanner(object):
                     folder_name = netloc.replace(':', '_') + '/'.join(path.split('/')[:-1])
 
                     if not os.path.exists(folder_name):
-                        print(f"creating a dir {folder_name}")
                         os.makedirs(folder_name)
 
                     # for threads synchronization
@@ -119,7 +120,6 @@ def parse_dstore_data(filename):
     files = set()
     with DSStore.open(filename,"r+") as d:
         for f in d:
-            print(f"iterating over\n{f.filename}")
             try:
                 filename = f.filename
                 logging.debug("name: '{}' code: '{}' type: '{}' value: '{}'".format(f.filename, f.code, f.type, f.value))
@@ -137,8 +137,7 @@ def parse_dstore_data(filename):
             entries["files"].add(file_)
     return entries
 
-
-if __name__ == '__main__':
+def main():
     if len(sys.argv) == 1:
         print('A .DS_Store file disclosure exploit.')
         print('It parses .DS_Store and downloads file recursively.')
@@ -147,3 +146,7 @@ if __name__ == '__main__':
         sys.exit(0)
     s = Scanner(sys.argv[1])
     s.scan()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,16 +1,12 @@
-# ds\_store\_exp #
+# dsscan
 
 A **`.DS_Store`** file disclosure exploit. 
 
 It parses .DS_Store file and downloads files recursively.
 
-这是一个 .DS\_Store 文件泄漏利用脚本，它解析.DS_Store文件并递归地下载文件到本地。
-
-    Usage: python ds_store_exp.py http://www.example.com/.DS_Store
-
 ## Install ##
 
-	pip install ds-store requests
+	pipx install git+https://github.com/w0ltage/dsscan.git
 
 ## Example ##
 
