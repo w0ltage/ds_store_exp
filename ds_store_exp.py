@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 # LiJieJie    my[at]lijiejie.com    http://www.lijiejie.com
 
+import logging
 import sys
 try:
     from urllib.parse import urlparse
@@ -58,39 +59,43 @@ class Scanner(object):
                     url = 'http://%s' % url
                 schema, netloc, path, _, _, _ = urlparse(url, 'http')
                 try:
-                    response = requests.get(url, allow_redirects=False)
+                    response = requests.get(url, allow_redirects=False, verify=False)
                 except Exception as e:
                     self.lock.acquire()
                     print('[ERROR] %s' % str(e))
                     self.lock.release()
                     continue
 
+                # checks if link is correct
                 if response.status_code == 200:
                     folder_name = netloc.replace(':', '_') + '/'.join(path.split('/')[:-1])
+
                     if not os.path.exists(folder_name):
+                        print(f"creating a dir {folder_name}")
                         os.makedirs(folder_name)
+
+                    # for threads synchronization
                     with open(netloc.replace(':', '_') + path, 'wb') as outFile:
                         self.lock.acquire()
                         print('[%s] %s' % (response.status_code, url))
                         self.lock.release()
                         outFile.write(response.content)
+
                     if url.endswith('.DS_Store'):
                         ds_store_file = BytesIO()
                         ds_store_file.write(response.content)
-                        d = DSStore.open(ds_store_file)
 
-                        dirs_files = set()
-                        for x in d._traverse(None):
-                            if self.is_valid_name(x.filename):
-                                dirs_files.add(x.filename)
-                        for name in dirs_files:
-                            if name != '.':
-                                self.queue.put(base_url + name)
-                                # try on child folder
-                                # skip xxx.png
-                                if len(name) <= 4 or name[-4] != '.':
-                                    self.queue.put(base_url + name + '/.DS_Store')
-                        d.close()
+                        dirs_files = parse_dstore_data(ds_store_file)
+                        directories = dirs_files['directories']
+                        files = dirs_files['files']
+
+                        for file in files:
+                            if file != '.':
+                                self.queue.put(base_url + file)
+
+                        for directory in directories:
+                            self.queue.put(base_url + directory + '/.DS_Store')
+
             except Exception as e:
                 self.lock.acquire()
                 print('[ERROR] %s' % str(e))
@@ -104,6 +109,33 @@ class Scanner(object):
             t = threading.Thread(target=self.process)
             all_threads.append(t)
             t.start()
+
+# https://bitbucket.org/grimhacker/ds_store_parser/src/master/ds_store_parser.py
+def parse_dstore_data(filename):
+    entries = {
+        "directories": set(),
+        "files": set()
+    }
+    files = set()
+    with DSStore.open(filename,"r+") as d:
+        for f in d:
+            print(f"iterating over\n{f.filename}")
+            try:
+                filename = f.filename
+                logging.debug("name: '{}' code: '{}' type: '{}' value: '{}'".format(f.filename, f.code, f.type, f.value))
+                if f.code in [b"BKGD", b"ICVO", b"fwi0", b"fwsw", b"fwvh", b"icsp", b"icvo", b"icvt", b"logS", b"lg1S", b"lssp", b"lsvo", b"lsvt", b"modD", b"moDD", b"phyS", b"ph1S", b"pict", b"vstl", b"LSVO", b"ICVO", b"dscl", b"icgo", b"vSrn"]:
+                    logging.debug("Entry '{}' has code '{}' so assume directory.".format(filename, f.code))
+                    entries["directories"].add(filename)
+                else:
+                    logging.debug("Entry '{}' has code '{}' so assume not directory.".format(filename, f.code))
+                    files.add(filename)
+            except Exception as e:
+                logging.warning("Error parsing item: {}".format(e))
+    logging.debug("Checking suspected files aren't in the directory list...")
+    for file_ in files:
+        if file_ not in entries["directories"]:
+            entries["files"].add(file_)
+    return entries
 
 
 if __name__ == '__main__':
